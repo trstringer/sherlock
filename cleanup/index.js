@@ -48,6 +48,11 @@ function cleanup(logger) {
                         applicationsToDeleteOperations.push(graphClient.applications.deleteMethod(
                             applications[i].objectId
                         ));
+                        // if there are multiple resource groups for a single application
+                        // then we only want to try to delete the application *once*
+                        // so if we find the application on this iteration then we
+                        // don't need to keep looking for this particular application
+                        break;
                     }
                 }
             }
