@@ -124,7 +124,7 @@ function createSandboxEntities(rgCount, region, duration, prefix) {
         .then(() => {
             return {
                 resourceGroupNames: rgNames,
-                cliendId: appIdCached,
+                clientId: appIdCached,
                 clientSecret: password,
                 subscriptionId,
                 tenantId
