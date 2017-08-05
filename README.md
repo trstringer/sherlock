@@ -12,7 +12,11 @@ Sherlock will create one or more resource groups in a subscription, and create a
 
 This tool is an Azure Function app, with two functions: the first one is a web API that listens for requests to create a sandbox environment (and respond with the necessary connection information). The second Function is a cleanup process that is the cron job to remove sandbox environments in the subscription when they expire.
 
-## Setup
+## Setup with Ansible
+
+[Ansible playbook setup guide](setup/)
+
+## Setup Manually
 
 To quickly and easily standup Sherlock in your Azure Subscription, I highly recommend you use the [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli). The following steps assume that you have the Azure CLI installed and logged in for your subscription.
 

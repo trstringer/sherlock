@@ -29,4 +29,4 @@ $ ansible-playbook main.yml
 
 ## Get the Azure Function URL and key
 
-Navigate to the [Azure Porta](https://portal.azure.com) to retrieve the Function URL and key(s)
+Navigate to the [Azure Portal](https://portal.azure.com) to retrieve the Function URL and key(s)
