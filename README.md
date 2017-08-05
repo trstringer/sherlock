@@ -2,6 +2,13 @@
 
 *Integration testing sandbox provisioning tool for Microsoft Azure*
 
+## Index
+
+- [Overview](#overview)
+- [Setup with Ansible](#setup-with-ansible)
+- [Setup manually](#setup-manually)
+- [Usage](#usage)
+
 ## Overview
 
 **What does Sherlock provide for me?**
@@ -26,7 +33,7 @@ To quickly and easily standup Sherlock in your Azure Subscription, I highly reco
 1. Create the Azure Function App: `$ az functionapp create -g sherlock-rg -n sherlockinttest -s sherlockstor -u https://github.com/tstringer/sherlock.git --consumption-plan-location eastus` (you will need to create a unique name for your Function App)
 1. Configure Sherlock (see the [Configuration section](#configuration) below)
 
-## Configuration
+### Configuration
 
 1. Set the client ID app setting for Sherlock: `$ az functionapp config appsettings set -g sherlock-rg -n sherlockinttest --settings AZURE_CLIENT_ID=<service_principal_app_id>` (this is going to be the service principal application ID that you have to prestage in your Azure AD tenant)
 1. Set the client secret for Sherlock: `$ az functionapp config appsettings set -g sherlock-rg -n sherlockinttest --settings AZURE_CLIENT_SECRET=<service_principal_key>`
