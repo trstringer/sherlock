@@ -1,0 +1,31 @@
+---
+- name: create sherlock in azure
+  hosts: localhost
+  vars_files:
+    - vars.yml
+
+  tasks:
+    - name: check for azure cli
+      command: which az
+      changed_when: false
+
+    - name: create resource group
+      azure_rm_resourcegroup:
+        name: '{{ resource_group }}'
+        location: '{{ location }}'
+
+    - name: create storage account
+      azure_rm_storageaccount:
+        resource_group: '{{ resource_group }}'
+        name: '{{ storage_account }}'
+        account_type: Standard_LRS
+
+    - name: create azure function app
+      command: az functionapp create -g {{ resource_group }} -n {{ app }} -s {{ storage_account }} -u {{ git_repo_uri }} --consumption-plan-location {{ location }}
+
+    - name: set app function app settings
+      command: az functionapp config appsettings set -g {{ resource_group }} -n {{ app }} --settings \
+        AZURE_CLIENT_ID={{ azure_client_id }} \
+        AZURE_CLIENT_SECRET={{ azure_client_secret }} \
+        AZURE_SUBSCRIPTION_ID={{ azure_subscription_id }} \
+        AZURE_TENANT_ID={{ azure_tenant_id }} 
