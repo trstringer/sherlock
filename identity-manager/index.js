@@ -111,19 +111,16 @@ function createIdentities(graphClient, count) {
         });
     }
 
-    let appCached;
-
     return Promise.all(
         newIdentities.map((identity, idx) => {
             return createApplication(graphClient, identity.name, identity.password)
                 .then(app => {
-                    appCached = app;
-                    return createServicePrincipal(graphClient, app.appId);
-                })
-                .then(sp => {
-                    newIdentities[idx].spObjectId = sp.objectId;
-                    newIdentities[idx].appId = appCached.appId;
-                    newIdentities[idx].appObjectId = appCached.objectId;
+                    return createServicePrincipal(graphClient, app.appId)
+                        .then(sp => {
+                            newIdentities[idx].spObjectId = sp.objectId;
+                            newIdentities[idx].appId = app.appId;
+                            newIdentities[idx].appObjectId = app.objectId;
+                        });
                 });
         })
     ).then(() => {
