@@ -46,7 +46,7 @@ function populateServicePrincipalsQueue(logger) {
                             identities.forEach(identity => {
                                 queueService.createMessage(
                                     queueName,
-                                    `${identity.spObjectId} ${identity.appId} ${identity.password}`,
+                                    `${identity.spObjectId} ${identity.appId} ${identity.appObjectId} ${identity.password}`,
                                     err => {
                                         if (err) {
                                             reject(err);
@@ -123,6 +123,7 @@ function createIdentities(graphClient, count) {
                 .then(sp => {
                     newIdentities[idx].spObjectId = sp.objectId;
                     newIdentities[idx].appId = appCached.appId;
+                    newIdentities[idx].appObjectId = appCached.objectId;
                 });
         })
     ).then(() => {

@@ -13,9 +13,13 @@ function expirationDate(durationMin) {
     return newDateLocale;
 }
 
-function createResourceGroup(creds, name, region, subscriptionId, duration) {
+function createResourceGroup(creds, name, region, subscriptionId, duration, appObjectId) {
     const resClient = new azurerm.ResourceManagementClient(creds, subscriptionId);
-    const resGroupTags = Object.assign({}, tags, { expiresOn: expirationDate(duration).toString() });
+    const resGroupTags = Object.assign({}, tags,
+        {
+            expiresOn: expirationDate(duration).toString(),
+            appObjectId
+        });
     return resClient.resourceGroups.createOrUpdate(
         name,
         { location: region, tags: resGroupTags }
@@ -50,7 +54,7 @@ function getServicePrincipal() {
                         reject(err);
                         return;
                     }
-                    const identity_match = /(.*) (.*) (.*)/.exec(message.messageText);
+                    const identity_match = /(.*) (.*) (.*) (.*)/.exec(message.messageText);
                     queueService.deleteMessage(queueName, message.messageId, message.popReceipt, err => {
                         if (err) {
                             reject(err);
@@ -59,7 +63,8 @@ function getServicePrincipal() {
                         resolve({
                             objectId: identity_match[1],
                             appId: identity_match[2],
-                            password: identity_match[3]
+                            appObjectId: identity_match[3],
+                            password: identity_match[4]
                         });
                     });
                 });
@@ -100,17 +105,19 @@ function createSandboxEntities(rgCount, region, duration, prefix) {
         rgNames.push(`${prefix}${randomNumber}-${i}-rg`);
     }
 
-    return msrest.loginWithServicePrincipalSecret(clientId, clientSecret, tenantId)
+    return getServicePrincipal()
+        .then(sp => {
+            spCached = sp;
+        })
+        .then(() => msrest.loginWithServicePrincipalSecret(clientId, clientSecret, tenantId))
         .then(creds => {
             cachedCreds = creds;
-            return Promise.all(rgNames.map(rgName => createResourceGroup(creds, rgName, region, subscriptionId, duration)));
+            return Promise.all(rgNames.map(rgName => createResourceGroup(creds, rgName, region, subscriptionId, duration, spCached.appObjectId)));
         })
-        .then(() => getServicePrincipal())
-        .then((sp) => {
-            spCached = sp;
+        .then(() => {
             return Promise.all(rgNames.map(rgName => assignRolesToServicePrincipal(
                 cachedCreds,
-                sp,
+                spCached,
                 subscriptionId,
                 rgName,
                 contributorRoleId

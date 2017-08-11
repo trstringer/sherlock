@@ -9,6 +9,7 @@ function cleanup(logger) {
     const tenantId = process.env['AZURE_TENANT_ID'];
     let resClientCached;
     let deletedResourceGroups = [];
+    let deleteApplications = [];
 
     const credsForGraph = new msrest.ApplicationTokenCredentials(
         clientId,
@@ -29,6 +30,7 @@ function cleanup(logger) {
             let deleteResourceGroupOperations = [];
             for(let i = 0; i < resourceGroups.length; i++) {
                 if (resourceGroups[i].tags && resourceGroups[i].tags.isCI === 'yes' && isExpired(resourceGroups[i].tags.expiresOn)) {
+                    deleteApplications.push(resourceGroups[i].tags.appObjectId);
                     logger(`Deleting ${resourceGroups[i].name} with expiration of ${resourceGroups[i].tags.expiresOn}`);
                     deleteResourceGroupOperations.push(resClientCached.resourceGroups.beginDeleteMethod(resourceGroups[i].name));
                     deletedResourceGroups.push(resourceGroups[i].name);
@@ -37,25 +39,11 @@ function cleanup(logger) {
             logger(`deleting ${deleteResourceGroupOperations.length} resource group(s)`);
             return Promise.all(deleteResourceGroupOperations);
         })
-        .then(() => graphClient.applications.list())
-        .then(applications => {
-            const identifiers = deletedResourceGroups.map(rgName => rgName.match(/\d+/g)[0]);
-            let applicationsToDeleteOperations = [];
-            for (let i = 0; i < applications.length; i++) {
-                for (let j = 0; j < identifiers.length; j++) {
-                    if (applications[i].displayName.match(identifiers[j])) {
-                        logger(`deleting application ${applications[i].displayName}`);
-                        applicationsToDeleteOperations.push(graphClient.applications.deleteMethod(
-                            applications[i].objectId
-                        ));
-                        // if there are multiple resource groups for a single application
-                        // then we only want to try to delete the application *once*
-                        // so if we find the application on this iteration then we
-                        // don't need to keep looking for this particular application
-                        break;
-                    }
-                }
-            }
+        .then(() => {
+            const applicationsToDeleteOperations = deleteApplications.map(appObjectIdToDelete => {
+                logger(`deleting ${appObjectIdToDelete}`);
+                return graphClient.applications.deleteMethod(appObjectIdToDelete);
+            });
             return Promise.all(applicationsToDeleteOperations);
         });
 }
