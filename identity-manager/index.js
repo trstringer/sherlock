@@ -136,6 +136,8 @@ module.exports = function (context, identityTimer) {
     if(identityTimer.isPastDue)
     {
         context.log('Past due condition met');
+        context.done();
+        return;
     }
 
     populateServicePrincipalsQueue(context.log)
