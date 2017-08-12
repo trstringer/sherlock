@@ -1,6 +1,6 @@
 {
   "name": "sherlock",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Integration testing framework for Microsoft Azure",
   "main": "index.js",
   "scripts": {
@@ -17,6 +17,7 @@
     "azure-arm-authorization": "^4.0.0-preview",
     "azure-arm-resource": "^2.0.0-preview",
     "azure-graph": "^2.1.0-preview",
+    "azure-storage": "^2.2.2",
     "moment": "^2.18.1"
   }
 }

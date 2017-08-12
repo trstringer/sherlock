@@ -1,8 +1,8 @@
 const azurerm = require('azure-arm-resource');
-const GraphRbacManagementClient = require('azure-graph');
 const msrest = require('ms-rest-azure');
 const AuthClient = require('azure-arm-authorization');
 const moment = require('moment');
+const azureStorage = require('azure-storage');
 
 const tags = { isCI: 'yes' };
 
@@ -13,27 +13,63 @@ function expirationDate(durationMin) {
     return newDateLocale;
 }
 
-function createResourceGroup(creds, name, region, subscriptionId, duration) {
+function createResourceGroup(creds, name, region, subscriptionId, duration, appObjectId) {
     const resClient = new azurerm.ResourceManagementClient(creds, subscriptionId);
-    const resGroupTags = Object.assign({}, tags, { expiresOn: expirationDate(duration).toString() });
+    const resGroupTags = Object.assign({}, tags,
+        {
+            expiresOn: expirationDate(duration).toString(),
+            appObjectId
+        });
     return resClient.resourceGroups.createOrUpdate(
         name,
         { location: region, tags: resGroupTags }
     );
 }
 
-function createApplication(graphClient, appName, password) {
-    const endDate = new Date();
-    endDate.setFullYear(endDate.getFullYear() + 1);
-    return graphClient.applications.create({
-        availableToOtherTenants: false,
-        displayName: appName,
-        identifierUris: [ `http://${appName}` ],
-        passwordCredentials: [{
-            keyId: msrest.generateUuid(),
-            value: password,
-            endDate
-        }]
+function getServicePrincipal() {
+    return new Promise((resolve, reject) => {
+        const identityStorageAccount = process.env['SHERLOCK_IDENTITY_STORAGE_ACCOUNT'];
+        const identityStorageKey = process.env['SHERLOCK_IDENTITY_STORAGE_KEY'];
+        const queueName = 'identity';
+        const queueService = azureStorage.createQueueService(
+            identityStorageAccount,
+            identityStorageKey
+        );
+        queueService.createQueueIfNotExists(queueName, err => {
+            if (err) {
+                reject(err);
+                return;
+            }
+            queueService.getQueueMetadata(queueName, (err, result) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                else if (result.approximateMessageCount === 0) {
+                    reject(Error('No available service principals in the queue'));
+                    return;
+                }
+                queueService.getMessage(queueName, (err, message) => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+                    const identity_match = /(.*) (.*) (.*) (.*)/.exec(message.messageText);
+                    queueService.deleteMessage(queueName, message.messageId, message.popReceipt, err => {
+                        if (err) {
+                            reject(err);
+                            return;
+                        }
+                        resolve({
+                            objectId: identity_match[1],
+                            appId: identity_match[2],
+                            appObjectId: identity_match[3],
+                            password: identity_match[4]
+                        });
+                    });
+                });
+            });
+        });
     });
 }
 
@@ -54,16 +90,6 @@ function assignRolesToServicePrincipal(creds, servicePrincipal, subscriptionId, 
     );
 }
 
-function strongPassword() {
-    let password = '';
-
-    for (let i = 0; i < 8; i++) {
-        password += Math.random().toString(36).slice(-8);
-    }
-
-    return password;
-}
-
 function createSandboxEntities(rgCount, region, duration, prefix) {
     const clientId = process.env['AZURE_CLIENT_ID'];
     const clientSecret = process.env['AZURE_CLIENT_SECRET'];
@@ -71,46 +97,22 @@ function createSandboxEntities(rgCount, region, duration, prefix) {
     const tenantId = process.env['AZURE_TENANT_ID'];
     const randomNumber = Math.floor(Math.random() * 100000);
     const contributorRoleId = 'b24988ac-6180-42a0-ab88-20f7382dd24c';
-    const appName = `${prefix}${randomNumber}`;
-    const password = strongPassword();
     let cachedCreds;
     let spCached;
-    let appIdCached;
 
     const rgNames = [];
     for (let i = 0; i < rgCount; i++) {
         rgNames.push(`${prefix}${randomNumber}-${i}-rg`);
     }
 
-    const credsForGraph = new msrest.ApplicationTokenCredentials(
-        clientId,
-        tenantId,
-        clientSecret,
-        { tokenAudience: 'graph' }
-    );
-
-    const graphClient = new GraphRbacManagementClient(credsForGraph, tenantId);
-
-    return msrest.loginWithServicePrincipalSecret(clientId, clientSecret, tenantId)
-        .then(creds => {
-            cachedCreds = creds;
-            return Promise.all(rgNames.map(rgName => createResourceGroup(creds, rgName, region, subscriptionId, duration)));
-        })
-        .then(() => createApplication(graphClient, appName, password))
-        .then(application => {
-            appIdCached = application.appId;
-
-            return graphClient.servicePrincipals.create({
-                appId: application.appId,
-                accountEnabled: true
-            });
-        })
+    return getServicePrincipal()
         .then(sp => {
             spCached = sp;
-            const sleepTime = 60000;
-            return new Promise((resolve) => {
-                setTimeout(resolve, sleepTime);
-            });
+        })
+        .then(() => msrest.loginWithServicePrincipalSecret(clientId, clientSecret, tenantId))
+        .then(creds => {
+            cachedCreds = creds;
+            return Promise.all(rgNames.map(rgName => createResourceGroup(creds, rgName, region, subscriptionId, duration, spCached.appObjectId)));
         })
         .then(() => {
             return Promise.all(rgNames.map(rgName => assignRolesToServicePrincipal(
@@ -124,8 +126,8 @@ function createSandboxEntities(rgCount, region, duration, prefix) {
         .then(() => {
             return {
                 resourceGroupNames: rgNames,
-                clientId: appIdCached,
-                clientSecret: password,
+                clientId: spCached.appId,
+                clientSecret: spCached.password,
                 subscriptionId,
                 tenantId
             };

@@ -1,0 +1,11 @@
+{
+    "disabled": false,
+    "bindings": [
+        {
+            "name": "identityTimer",
+            "type": "timerTrigger",
+            "direction": "in",
+            "schedule": "0 */5 * * * *"
+        }
+    ]
+}
