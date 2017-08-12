@@ -41,6 +41,17 @@ To quickly and easily standup Sherlock in your Azure Subscription, I highly reco
 1. Set the tenant ID for your Azure AD: `$ az functionapp config appsettings set -g sherlock-rg -n sherlockinttest --settings AZURE_TENANT_ID=<tenant_id>`
 1. Set the prefix for Sherlock: `$ az functionapp config appsettings set -g sherlock-rg -n sherlockinttest --settings RES_PREFIX=sherlock` (this will be the prefix that is used to name provisioned resource groups and service principals)
 
+## Queue Setup and Configuration
+
+Sherlock utilizes queueing for pooling identities. This queue is provided by Azure Storage, and therefore you need to setup the account prior to using Sherlock.
+
+1. Create a general purpose storage account in an Azure subscription
+1. On the Sherlock Function App, set the following environment variables:
+  - SHERLOCK_IDENTITY_STORAGE_ACCOUNT - set this to the Azure storage account
+  - SHERLOCK_IDENTITY_STORAGE_KEY - set this to the storage key
+
+:bulb: Note, you don't have to prestage the queue. The `identity-manager` Function will create it if it doesn't already exist
+
 ## Usage
 
 Once you have Sherlock setup and configured (see above), you only need to make a POST request to Sherlock. The request will look like: `https://<function_app_name>.azurewebsites.net/api/sandbox-provisioning?code=<key>`, where `function_app_name` is the name of the Azure Function App you used when you created it above (in my case, I used `sherlockinttest` but you would have a different name).
