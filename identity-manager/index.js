@@ -12,6 +12,8 @@ function populateServicePrincipalsQueue(logger) {
         const queueName = 'identity';
         const desiredSpCount = process.env['SHERLOCK_DESIRED_SP_COUNT'] || 10;
 
+        logger(`Populating ${queueName} with a desired count of ${desiredSpCount} service principals(s)`);
+
         const credsForGraph = new msrest.ApplicationTokenCredentials(
             clientId,
             tenantId,
@@ -29,19 +31,26 @@ function populateServicePrincipalsQueue(logger) {
             identityStorageKey
         );
         queueService.createQueueIfNotExists(queueName, err => {
+            logger('Called createQueueIfNotExists()');
             if (err) {
+                logger('Error calling createQueueIfNotExists()');
+                logger(err);
+                reject(err);
                 return;
             }
 
             queueService.getQueueMetadata(queueName, (err, results) => {
                 if (err) {
+                    logger('Error calling getQueueMetadata()');
+                    logger(err);
+                    reject(err);
                     return;
                 }
-                logger(`queue length: ${results.approximateMessageCount}`);
+                logger(`Queue length: ${results.approximateMessageCount}`);
                 if (results.approximateMessageCount < desiredSpCount) {
-                    createIdentities(graphClient, desiredSpCount - results.approximateMessageCount)
+                    createIdentities(graphClient, desiredSpCount - results.approximateMessageCount, logger)
                         .then((identities) => {
-                            logger('created identities');
+                            logger('Created identities');
                             logger(identities);
                             identities.forEach(identity => {
                                 queueService.createMessage(
@@ -52,12 +61,14 @@ function populateServicePrincipalsQueue(logger) {
                                             reject(err);
                                             return;
                                         }
-                                        logger(`successfully inserted ${identity.spObjectId} in queue`);
+                                        logger(`Successfully inserted ${identity.spObjectId} in queue`);
                                     }
                                 );
                             });
                         })
                         .catch(err => {
+                            logger('Error creating identites');
+                            logger(err);
                             reject(err);
                         });
                 }
@@ -102,7 +113,8 @@ function randomName() {
     return `sherlock${Math.random().toString(36).slice(-8)}`;
 }
 
-function createIdentities(graphClient, count) {
+function createIdentities(graphClient, count, logger) {
+    logger(`Entering createIdentities() to provision ${count} new identity(ies)`);
     let newIdentities = [];
     for (let i = 0; i < count; i++) {
         newIdentities.push({
@@ -115,8 +127,10 @@ function createIdentities(graphClient, count) {
         newIdentities.map((identity, idx) => {
             return createApplication(graphClient, identity.name, identity.password)
                 .then(app => {
+                    logger(`Application ${app.appId} created`);
                     return createServicePrincipal(graphClient, app.appId)
                         .then(sp => {
+                            logger(`Service principal ${sp.objectId} created`);
                             newIdentities[idx].spObjectId = sp.objectId;
                             newIdentities[idx].appId = app.appId;
                             newIdentities[idx].appObjectId = app.objectId;
@@ -124,14 +138,19 @@ function createIdentities(graphClient, count) {
                 });
         })
     ).then(() => {
+        logger('Sleeping for 60 seconds');
         return new Promise(resolve => {
             setTimeout(resolve, 60000);
         });
-    }).then(() => newIdentities);
+    }).then(() => {
+        logger(`Created ${newIdentities.length} new identity(ies)`);
+        return newIdentities;
+    });
 }
 
 module.exports = function (context, identityTimer) {
-    if(identityTimer.isPastDue)
+    context.log('Entering function execution');
+    if (identityTimer.isPastDue)
     {
         context.log('Past due condition met');
         context.done();
