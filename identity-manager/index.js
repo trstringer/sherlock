@@ -62,6 +62,7 @@ function populateServicePrincipalsQueue(logger) {
                                             return;
                                         }
                                         logger(`Successfully inserted ${identity.spObjectId} in queue`);
+                                        resolve();
                                     }
                                 );
                             });
@@ -71,6 +72,9 @@ function populateServicePrincipalsQueue(logger) {
                             logger(err);
                             reject(err);
                         });
+                }
+                else {
+                    resolve();
                 }
             });
         });
