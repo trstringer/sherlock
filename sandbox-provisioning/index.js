@@ -140,7 +140,7 @@ module.exports = function (context, req) {
     let region = 'eastus';
     let duration = 30;  // minutes
 
-    const prefix = process.env['RES_PREFIX'] || 'sandbox';
+    const prefix = process.env['RES_PREFIX'] || 'sherlock';
 
     if (req.query.rgcount || (req.body && req.body.rgcount)) {
         rgCount = req.query.rgcount || req.body.rgcount;
