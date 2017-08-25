@@ -58,11 +58,12 @@ Once you have Sherlock setup and configured (see above), you only need to make a
 
 The `key` is either the existing Function key that was created with the Azure Function was created, or a newly generated key (it is recommended to create a new key for each user and integration testing framework so that it is a more secure implementation, allowing you to revoke a key without affecting more users/clients). To create a new key you will have to use the Azure Portal. Navigate to the portal, and go to your Azure Function. Click on the **Manage** section for the `sandbox-provisioning` Function. Here you can view existing keys as well as create new keys.
 
-**Request parameters**
+**Request parameters** (all optional)
 
 - *rgcount*: the amount of resource groups that need to be created (default **1**)
 - *region*: the location to create the resource groups in (default **eastus**)
 - *duration*: amount of time (in minutes) that the resource group (and corresponding principal) needs to be preserved for (default **30 minutes**). After this elapsed time, the cleanup Function will delete the resource groups and any resources in the resource group(s)
+- *prefix*: prefix the resource group (appended to `RES_PREFIX` or the default 'sherlock') with a request-level prefix
 
 **Examples**
 
