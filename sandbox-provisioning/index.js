@@ -139,8 +139,9 @@ module.exports = function (context, req) {
     let rgCount = 1;
     let region = 'eastus';
     let duration = 30;  // minutes
+    let requestPrefix = '';
 
-    const prefix = process.env['RES_PREFIX'] || 'sherlock';
+    let prefix = process.env['RES_PREFIX'] || 'sherlock';
 
     if (req.query.rgcount || (req.body && req.body.rgcount)) {
         rgCount = req.query.rgcount || req.body.rgcount;
@@ -152,6 +153,11 @@ module.exports = function (context, req) {
 
     if (req.query.duration || (req.body && req.body.duration)) {
         duration = req.query.duration || req.body.duration;
+    }
+
+    if (req.query.requestPrefix || (req.body && req.body.requestPrefix)) {
+        requestPrefix = req.query.requestPrefix || req.body.requestPrefix;
+        prefix += `-${requestPrefix}`;
     }
 
     createSandboxEntities(rgCount, region, duration, prefix)
