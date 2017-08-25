@@ -155,9 +155,9 @@ module.exports = function (context, req) {
         duration = req.query.duration || req.body.duration;
     }
 
-    if (req.query.requestPrefix || (req.body && req.body.requestPrefix)) {
-        requestPrefix = req.query.requestPrefix || req.body.requestPrefix;
-        prefix += `-${requestPrefix}`;
+    if (req.query.prefix || (req.body && req.body.prefix)) {
+        requestPrefix = req.query.prefix || req.body.prefix;
+        prefix += `-${requestPrefix}-`;
     }
 
     createSandboxEntities(rgCount, region, duration, prefix)
