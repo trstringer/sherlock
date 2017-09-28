@@ -12,7 +12,7 @@ function pgConfig() {
 }
 
 function addMetaInfo(resourceGroupPrefix, applicationObjectId, expiresOn) {
-    const pgClient = pg.Client(pgConfig());
+    const pgClient = new pg.Client(pgConfig());
 
     return pgClient.connect()
         .then(() => 'connected')
