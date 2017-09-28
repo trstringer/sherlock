@@ -1,29 +1,14 @@
 const azurerm = require('azure-arm-resource');
 const msrest = require('ms-rest-azure');
 const AuthClient = require('azure-arm-authorization');
-const moment = require('moment');
 const azureStorage = require('azure-storage');
 const request = require('request');
 
-const tags = { isCI: 'yes' };
-
-function expirationDate(durationMin) {
-    const currentDate = new Date();
-    const newDate = moment(currentDate).add(durationMin, 'm');
-    const newDateLocale = newDate.toLocaleString();
-    return newDateLocale;
-}
-
-function createResourceGroup(creds, name, region, subscriptionId, duration, appObjectId) {
+function createResourceGroup(creds, name, region, subscriptionId) {
     const resClient = new azurerm.ResourceManagementClient(creds, subscriptionId);
-    const resGroupTags = Object.assign({}, tags,
-        {
-            expiresOn: expirationDate(duration).toString(),
-            appObjectId
-        });
     return resClient.resourceGroups.createOrUpdate(
         name,
-        { location: region, tags: resGroupTags }
+        { location: region }
     );
 }
 
@@ -131,7 +116,7 @@ function createSandboxEntities(rgCount, region, duration, prefix) {
         .then(() => msrest.loginWithServicePrincipalSecret(clientId, clientSecret, tenantId))
         .then(creds => {
             cachedCreds = creds;
-            return Promise.all(rgNames.map(rgName => createResourceGroup(creds, rgName, region, subscriptionId, duration, spCached.appObjectId)));
+            return Promise.all(rgNames.map(rgName => createResourceGroup(creds, rgName, region, subscriptionId)));
         })
         .then(() => {
             return Promise.all(rgNames.map(rgName => assignRolesToServicePrincipal(
