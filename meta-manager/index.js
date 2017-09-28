@@ -31,7 +31,8 @@ function getMetaInfo() {
             resource_group_prefix,
             application_object_id,
             expiration_datetime
-        from sandbox;
+        from sandbox
+        where expiration_datetime < now();
     `;
 
     pgClient.on('error', pgErrorHandler);
