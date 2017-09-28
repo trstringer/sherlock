@@ -18,6 +18,30 @@ function expirationDate(durationMin) {
     return newDate.utc().toString();
 }
 
+function pgErrorHandler(err) {
+    if (err.code !== 'ECONNRESET') {
+        throw err;
+    }
+}
+
+function getMetaInfo() {
+    const pgClient = new pg.Client(pgConfig());
+    const query = `
+        select
+            resource_group_prefix,
+            application_object_id,
+            expiration_datetime
+        from sandbox;
+    `;
+
+    pgClient.on('error', pgErrorHandler);
+
+    return pgClient.connect()
+        .then(() => pgClient.query(query))
+        .then(res => res.rows);
+}
+
+
 function addMetaInfo(resourceGroupPrefix, applicationObjectId, expiresOn) {
     const pgClient = new pg.Client(pgConfig());
     const query = `
@@ -25,11 +49,7 @@ function addMetaInfo(resourceGroupPrefix, applicationObjectId, expiresOn) {
         values ('${resourceGroupPrefix}', '${applicationObjectId}', '${expiresOn}');
     `;
 
-    pgClient.on('error', err => {
-        if (err.code !== 'ECONNRESET') {
-            throw err;
-        }
-    });
+    pgClient.on('error', pgErrorHandler);
 
     return pgClient.connect()
         .then(() => pgClient.query(query))
@@ -40,9 +60,12 @@ module.exports = function (context, req) {
     context.log('JavaScript HTTP trigger function processed a request.');
 
     if (!req.query.rgprefix && !(req.body && req.body.rgprefix)) {
-        context.log('Resource group prefix not passed');
-        context.res = { status: 400, body: 'Resource group prefix not passed' };
-        context.done();
+        // in this case just retrieve the data
+        getMetaInfo()
+            .then(data => {
+                context.res = { body: data };
+                context.done();
+            });
         return;
     }
     else if (!req.query.appobjid && !(req.body && req.body.appobjid)) {
