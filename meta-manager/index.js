@@ -1,5 +1,25 @@
 const pg = require('pg');
 
+function pgConfig() {
+    return {
+        host: process.env['PG_HOST'],
+        user: process.env['PG_USER'],
+        password: process.env['PG_PASSWORD'],
+        database: process.env['PG_DATABASE'],
+        port: 5432,
+        ssl: true
+    };
+}
+
+function addMetaInfo(resourceGroupPrefix, applicationObjectId, expiresOn) {
+    const pgClient = pg.Client(pgConfig());
+
+    return pgClient.connect()
+        .then(() => 'connected')
+        .then(() => pgClient.end())
+        .catch(err => err);
+}
+
 module.exports = function (context, req) {
     context.log('JavaScript HTTP trigger function processed a request.');
 
@@ -14,7 +34,15 @@ module.exports = function (context, req) {
 
     rgprefix = req.query.rgprefix || req.body.rgprefix;
 
-    context.log(`You passed in ${rgprefix}`);
-    context.res = { body: `You passed ${rgprefix}` };
-    context.done();
+    addMetaInfo(rgprefix, 'blah', Date())
+        .then(() => {
+            context.log('completed successfully');
+            context.res = { body: 'completely successfully' };
+            context.done();
+        })
+        .catch(err => {
+            context.log('whoops there was an error');
+            context.log(err);
+            context.res = { status: 400, body: 'error!' };
+        });
 };
