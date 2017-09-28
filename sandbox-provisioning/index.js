@@ -3,6 +3,7 @@ const msrest = require('ms-rest-azure');
 const AuthClient = require('azure-arm-authorization');
 const moment = require('moment');
 const azureStorage = require('azure-storage');
+const request = require('request');
 
 const tags = { isCI: 'yes' };
 
@@ -90,6 +91,22 @@ function assignRolesToServicePrincipal(creds, servicePrincipal, subscriptionId, 
     );
 }
 
+function cacheEntityMeta(resourceGroupPrefix, applicationObjectId, expirationTimeMinutes) {
+    return new Promise((resolve, reject) => {
+        const metaUrl = process.env['META_URL'];
+        const metaKey = process.env['META_KEY'];
+        const requestUrl = `${metaUrl}/?code=${metaKey}&rgprefix=${resourceGroupPrefix}&appobjid=${applicationObjectId}&expire=${expirationTimeMinutes}`;
+
+        request(requestUrl, err => {
+            if (err) {
+                reject(err);
+                return;
+            }
+            resolve();
+        });
+    });
+}
+
 function createSandboxEntities(rgCount, region, duration, prefix) {
     const clientId = process.env['AZURE_CLIENT_ID'];
     const clientSecret = process.env['AZURE_CLIENT_SECRET'];
@@ -125,6 +142,7 @@ function createSandboxEntities(rgCount, region, duration, prefix) {
                 contributorRoleId
             )));
         })
+        .then(() => cacheEntityMeta(rgNameWithoutSeq, spCached.appObjectId, duration))
         .then(() => {
             return {
                 resourceGroupNames: rgNames,

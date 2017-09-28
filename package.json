@@ -19,6 +19,7 @@
     "azure-graph": "^2.1.0-preview",
     "azure-storage": "^2.2.2",
     "moment": "^2.18.1",
-    "pg": "^7.3.0"
+    "pg": "^7.3.0",
+    "request": "^2.83.0"
   }
 }
