@@ -33,6 +33,8 @@ module.exports = function (context, req) {
 
     rgprefix = req.query.rgprefix || req.body.rgprefix;
 
+    context.log('Calling add meta info');
+
     addMetaInfo(rgprefix, 'blah', Date())
         .then(() => {
             context.log('completed successfully');
