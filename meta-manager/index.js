@@ -62,7 +62,7 @@ module.exports = function (context, req) {
     const appobjid = req.query.appobjid || req.body.appobjid;
     const expire = req.query.expire || req.body.expire;
 
-    addMetaInfo(rgprefix, appobjid, expire)
+    addMetaInfo(rgprefix, appobjid, expirationDate(expire))
         .then(() => {
             context.log('completed successfully');
             context.res = { body: 'completely successfully' };
