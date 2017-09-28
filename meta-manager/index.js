@@ -43,5 +43,6 @@ module.exports = function (context, req) {
             context.log('whoops there was an error');
             context.log(err);
             context.res = { status: 400, body: 'error!' };
+            context.done();
         });
 };
