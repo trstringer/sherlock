@@ -16,8 +16,7 @@ function addMetaInfo(resourceGroupPrefix, applicationObjectId, expiresOn) {
 
     return pgClient.connect()
         .then(() => 'connected')
-        .then(() => pgClient.end())
-        .catch(err => err);
+        .then(() => pgClient.end());
 }
 
 module.exports = function (context, req) {
