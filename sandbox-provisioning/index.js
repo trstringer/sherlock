@@ -100,9 +100,11 @@ function createSandboxEntities(rgCount, region, duration, prefix) {
     let cachedCreds;
     let spCached;
 
+    const rgNameWithoutSeq = `${prefix}${randomNumber}`;
+
     const rgNames = [];
     for (let i = 0; i < rgCount; i++) {
-        rgNames.push(`${prefix}${randomNumber}-${i}-rg`);
+        rgNames.push(`${rgNameWithoutSeq}-${i}-rg`);
     }
 
     return getServicePrincipal()
