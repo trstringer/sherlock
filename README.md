@@ -7,6 +7,8 @@
 - [Overview](#overview)
 - [Setup with Ansible](#setup-with-ansible)
 - [Setup manually](#setup-manually)
+- [Database](#database)
+- [Metadata Service](#metadata-service)
 - [Usage](#usage)
 
 ## Overview
@@ -51,6 +53,22 @@ Sherlock utilizes queueing for pooling identities. This queue is provided by Azu
   - SHERLOCK_IDENTITY_STORAGE_KEY - set this to the storage key
 
 :bulb: Note, you don't have to prestage the queue. The `identity-manager` Function will create it if it doesn't already exist
+
+## Database
+
+Starting in v0.4.0, Sherlock now uses persistent storage for metadata, moving away from resource group tags. The storage is a PostgreSQL database. Set the following Azure Function app setting environment variables to their appropriate value:
+
+- `PG_HOST`: the postgres hostname
+- `PG_DATABASE`: the database name
+- `PG_USER`: the role to connect to postgres
+- `PG_PASSWORD`: the role's password
+
+## Metadata Service
+
+With the inception of the metadata service (`meta-manager` Azure Function), you need to set the following Azure Function app setting environment variables:
+
+- `META_URL`: the URL to the `meta-manager` Azure Function (can be retrieved from the portal)
+- `META_KEY`: the Azure Function auth key for the `meta-manager` Function
 
 ## Usage
 
