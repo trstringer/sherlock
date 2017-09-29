@@ -72,7 +72,23 @@ function addMetaInfo(resourceGroupPrefix, applicationObjectId, expiresOn) {
 
 module.exports = function (context, req) {
     context.log('JavaScript HTTP trigger function processed a request.');
-    context.log(`Request method: ${req.method}`);
+
+    if (req.method === 'DELETE') {
+        if (!req.query.rgprefix && !(req.body && req.body.rgprefix)) {
+            context.res = { status: 400, body: 'To delete a resource you must pass the rgprefix' };
+            context.done();
+            return;
+        }
+        deleteRgPrefix(req.query.rgprefix || req.body.rgprefix)
+            .then(() => context.done())
+            .catch((err) => {
+                context.log(`Error deleting ${req.query.rgprefix || req.body.rgprefix}`);
+                context.log(err);
+                context.res = { status: 400, body: `Error delete ${req.query.rgprefix || req.body.rgprefix}` };
+                context.done();
+            });
+        return;
+    }
 
     if (!req.query.rgprefix && !(req.body && req.body.rgprefix)) {
         // in this case just retrieve the data
