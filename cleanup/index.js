@@ -1,6 +1,21 @@
 const azurerm = require('azure-arm-resource');
 const GraphRbacManagementClient = require('azure-graph');
 const msrest = require('ms-rest-azure');
+const request = require('request');
+
+function resourceGroupPrefixesToDelete() {
+    return new Promise((resolve, reject) => {
+        const metaKey = process.env['META_KEY'];
+        const metaUrl = process.env['META_URL'];
+        request(`${metaUrl}/?code=${metaKey}`, (err, res, body) => {
+            if (err) {
+                reject(err);
+                return;
+            }
+            resolve(JSON.parse(body));
+        });
+    });
+}
 
 function cleanup(logger) {
     const clientId = process.env['AZURE_CLIENT_ID'];
@@ -10,6 +25,7 @@ function cleanup(logger) {
     let resClientCached;
     let deletedResourceGroups = [];
     let deleteApplications = [];
+    let rowsCached;
 
     const credsForGraph = new msrest.ApplicationTokenCredentials(
         clientId,
@@ -20,7 +36,11 @@ function cleanup(logger) {
 
     const graphClient = new GraphRbacManagementClient(credsForGraph, tenantId);
 
-    return msrest.loginWithServicePrincipalSecret(clientId, clientSecret, tenantId)
+    return resourceGroupPrefixesToDelete()
+        .then(rows => {
+            rowsCached = rows;
+            return msrest.loginWithServicePrincipalSecret(clientId, clientSecret, tenantId);
+        })
         .then(creds => {
             const resClient = new azurerm.ResourceManagementClient(creds, subscriptionId);
             resClientCached = resClient;
@@ -29,9 +49,12 @@ function cleanup(logger) {
         .then(resourceGroups => {
             let deleteResourceGroupOperations = [];
             for(let i = 0; i < resourceGroups.length; i++) {
-                if (resourceGroups[i].tags && resourceGroups[i].tags.isCI === 'yes' && isExpired(resourceGroups[i].tags.expiresOn)) {
-                    deleteApplications.push(resourceGroups[i].tags.appObjectId);
-                    logger(`Deleting ${resourceGroups[i].name} with expiration of ${resourceGroups[i].tags.expiresOn}`);
+                const output = rowsCached.filter(row => {
+                    return resourceGroups[i].name.substring(0, row.resource_group_prefix.length) === row.resource_group_prefix;
+                });
+                if (output.length > 0) {
+                    deleteApplications.push(output[0].application_object_id);
+                    logger(`Deleting ${resourceGroups[i].name} with expiration of ${output[0].expiration_datetime}`);
                     deleteResourceGroupOperations.push(resClientCached.resourceGroups.beginDeleteMethod(resourceGroups[i].name));
                     deletedResourceGroups.push(resourceGroups[i].name);
                 }
@@ -46,10 +69,6 @@ function cleanup(logger) {
             });
             return Promise.all(applicationsToDeleteOperations);
         });
-}
-
-function isExpired(expirationDateString) {
-    return new Date(expirationDateString) < new Date();
 }
 
 module.exports = function (context, cleanupTimer) {
