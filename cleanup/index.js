@@ -17,6 +17,20 @@ function resourceGroupPrefixesToDelete() {
     });
 }
 
+function deleteRgPrefixEntry(rgPrefix) {
+    return new Promise((resolve, reject) => {
+        const metaUrl = process.env['META_URL'];
+        const metaKey = process.env['META_KEY'];
+        request.delete(`${metaUrl}/?code=${metaKey}&rgprefix=${rgPrefix}`, err => {
+            if (err) {
+                reject(err);
+                return;
+            }
+            resolve();
+        });
+    });
+}
+
 function cleanup(logger) {
     const clientId = process.env['AZURE_CLIENT_ID'];
     const clientSecret = process.env['AZURE_CLIENT_SECRET'];
@@ -26,6 +40,7 @@ function cleanup(logger) {
     let deletedResourceGroups = [];
     let deleteApplications = [];
     let rowsCached;
+    let rgPrefixEntriesToDeleteCachedOperations = [];
 
     const credsForGraph = new msrest.ApplicationTokenCredentials(
         clientId,
@@ -53,6 +68,7 @@ function cleanup(logger) {
                     return resourceGroups[i].name.substring(0, row.resource_group_prefix.length) === row.resource_group_prefix;
                 });
                 if (output.length > 0) {
+                    rgPrefixEntriesToDeleteCachedOperations.push(deleteRgPrefixEntry(output[0].resource_group_prefix));
                     deleteApplications.push(output[0].application_object_id);
                     logger(`Deleting ${resourceGroups[i].name} with expiration of ${output[0].expiration_datetime}`);
                     deleteResourceGroupOperations.push(resClientCached.resourceGroups.beginDeleteMethod(resourceGroups[i].name));
@@ -62,6 +78,7 @@ function cleanup(logger) {
             logger(`deleting ${deleteResourceGroupOperations.length} resource group(s)`);
             return Promise.all(deleteResourceGroupOperations);
         })
+        .then(() => Promise.all(rgPrefixEntriesToDeleteCachedOperations))
         .then(() => {
             const applicationsToDeleteOperations = deleteApplications.map(appObjectIdToDelete => {
                 logger(`deleting ${appObjectIdToDelete}`);
