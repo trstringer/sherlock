@@ -42,6 +42,19 @@ function getMetaInfo() {
         .then(res => res.rows);
 }
 
+function deleteRgPrefix(rgPrefix) {
+    const pgClient = new pg.Client(pgConfig());
+    const query = `
+        delete from sandbox
+        where resource_group_prefix = '${rgPrefix}';
+    `;
+
+    pgClient.on('error', pgErrorHandler);
+
+    return pgClient.connect()
+        .then(() => pgClient.query(query))
+        .then(() => pgClient.end());
+}
 
 function addMetaInfo(resourceGroupPrefix, applicationObjectId, expiresOn) {
     const pgClient = new pg.Client(pgConfig());
@@ -59,6 +72,7 @@ function addMetaInfo(resourceGroupPrefix, applicationObjectId, expiresOn) {
 
 module.exports = function (context, req) {
     context.log('JavaScript HTTP trigger function processed a request.');
+    context.log(`Request method: ${req.method}`);
 
     if (!req.query.rgprefix && !(req.body && req.body.rgprefix)) {
         // in this case just retrieve the data
