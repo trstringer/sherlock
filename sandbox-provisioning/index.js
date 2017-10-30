@@ -154,7 +154,7 @@ function resourceGroupMetaData(rgPrefix) {
     });
 }
 
-function deleteSandboxEnvironment(rgPrefix) {
+function deleteSandboxEnvironment(rgPrefix, logger) {
     const clientId = process.env['AZURE_CLIENT_ID'];
     const clientSecret = process.env['AZURE_CLIENT_SECRET'];
     const subscriptionId = process.env['AZURE_SUBSCRIPTION_ID'];
@@ -237,7 +237,7 @@ module.exports = function (context, req) {
             context.done();
             return;
         }
-        deleteSandboxEnvironment(req.query.rgprefix || req.body.rgprefix)
+        deleteSandboxEnvironment(req.query.rgprefix || req.body.rgprefix, context.log)
             .then(() => context.done())
             .catch((err) => {
                 context.log(`Error deleting ${req.query.rgprefix || req.body.rgprefix}`);
