@@ -3,6 +3,7 @@ const msrest = require('ms-rest-azure');
 const AuthClient = require('azure-arm-authorization');
 const azureStorage = require('azure-storage');
 const request = require('request');
+const GraphRbacManagementClient = require('azure-graph');
 
 function createResourceGroup(creds, name, region, subscriptionId) {
     const resClient = new azurerm.ResourceManagementClient(creds, subscriptionId);
@@ -139,10 +140,80 @@ function createSandboxEntities(rgCount, region, duration, prefix) {
         });
 }
 
+function resourceGroupMetaData(rgPrefix) {
+    return new Promise((resolve, reject) => {
+        const metaKey = process.env['META_KEY'];
+        const metaUrl = process.env['META_URL'];
+        request(`${metaUrl}/?code=${metaKey}&all=true&rgprefix=${rgPrefix}`, (err, res, body) => {
+            if (err) {
+                reject(err);
+                return;
+            }
+            resolve(JSON.parse(body));
+        });
+    });
+}
+
+function deleteSandboxEnvironment(rgPrefix) {
+    const clientId = process.env['AZURE_CLIENT_ID'];
+    const clientSecret = process.env['AZURE_CLIENT_SECRET'];
+    const subscriptionId = process.env['AZURE_SUBSCRIPTION_ID'];
+    const tenantId = process.env['AZURE_TENANT_ID'];
+    let resClientCached;
+    let deletedResourceGroups = [];
+    let deleteApplications = [];
+    let rowsCached;
+    let rgPrefixEntriesToDeleteCachedOperations = [];
+
+    const credsForGraph = new msrest.ApplicationTokenCredentials(
+        clientId,
+        tenantId,
+        clientSecret,
+        { tokenAudience: 'graph' }
+    );
+
+    const graphClient = new GraphRbacManagementClient(credsForGraph, tenantId);
+
+    return resourceGroupMetaData(rgPrefix)
+        .then(rows => {
+            rowsCached = rows;
+            return msrest.loginWithServicePrincipalSecret(clientId, clientSecret, tenantId);
+        })
+        .then(creds => {
+            const resClient = new azurerm.ResourceManagementClient(creds, subscriptionId);
+            resClientCached = resClient;
+            return resClient.resourceGroups.list();
+        })
+        .then(resourceGroups => {
+            let deleteResourceGroupOperations = [];
+            for(let i = 0; i < resourceGroups.length; i++) {
+                if (resourceGroups[i].name.substring(0, rowsCached[0].resource_group_prefix.length) === rowsCached[0].resource_group_prefix) {
+                    deleteApplications.push(rowsCached[0].application_object_id);
+                    logger(`Deleting ${resourceGroups[i].name}`);
+                    deleteResourceGroupOperations.push(resClientCached.resourceGroups.beginDeleteMethod(resourceGroups[i].name));
+                    break;
+                }
+            }
+            logger(`deleting ${deleteResourceGroupOperations.length} resource group(s)`);
+            return Promise.all(deleteResourceGroupOperations);
+        })
+        .then(() => {
+            const applicationsToDeleteOperations = deleteApplications.map(appObjectIdToDelete => {
+                logger(`deleting ${appObjectIdToDelete}`);
+                return graphClient.applications.deleteMethod(appObjectIdToDelete);
+            });
+            return Promise.all(applicationsToDeleteOperations);
+        })
+        .then(() => {
+            return deleteByRgPrefix(rgPrefix);
+        });
+}
+
 function deleteByRgPrefix(rgPrefix) {
     return new Promise((resolve, reject) => {
         const metaUrl = process.env['META_URL'];
         const metaKey = process.env['META_KEY'];
+
         request.delete(`${metaUrl}/?code=${metaKey}&rgprefix=${rgPrefix}`, err => {
             if (err) {
                 reject(err);
@@ -166,7 +237,7 @@ module.exports = function (context, req) {
             context.done();
             return;
         }
-        deleteByRgPrefix(req.query.rgprefix || req.body.rgprefix)
+        deleteSandboxEnvironment(req.query.rgprefix || req.body.rgprefix)
             .then(() => context.done())
             .catch((erro) => {
                 context.log(`Error deleting ${req.query.rgprefix || req.body.rgprefix}`);
