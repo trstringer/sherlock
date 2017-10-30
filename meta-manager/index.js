@@ -24,6 +24,23 @@ function pgErrorHandler(err) {
     }
 }
 
+function getMetaInfoAll() {
+    const pgClient = new pg.Client(pgConfig());
+    const query = `
+        select
+            resource_group_prefix,
+            application_object_id,
+            expiration_datetime
+        from sandbox;
+    `;
+
+    pgClient.on('error', pgErrorHandler);
+
+    return pgClient.connect()
+        .then(() => pgClient.query(query))
+        .then(res => res.rows);
+}
+
 function getMetaInfo() {
     const pgClient = new pg.Client(pgConfig());
     const query = `
@@ -72,6 +89,15 @@ function addMetaInfo(resourceGroupPrefix, applicationObjectId, expiresOn) {
 
 module.exports = function (context, req) {
     context.log('JavaScript HTTP trigger function processed a request.');
+
+    if (req.method == 'GET' && (req.query.all || (req.body && req.body.all))) {
+        getMetaInfoAll()
+            .then(data => {
+                context.res = { body: data };
+                context.done();
+            });
+        return;
+    }
 
     if (req.method === 'DELETE') {
         if (!req.query.rgprefix && !(req.body && req.body.rgprefix)) {
