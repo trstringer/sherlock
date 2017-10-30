@@ -24,6 +24,24 @@ function pgErrorHandler(err) {
     }
 }
 
+function getMetaInfoByRgPrefix(rgPrefix) {
+    const pgClient = new pg.Client(pgConfig());
+    const query = `
+        select
+            resource_group_prefix,
+            application_object_id,
+            expiration_datetime
+        from sandbox
+        where resource_group_prefix = '${rgPrefix}';
+    `;
+
+    pgClient.on('error', pgErrorHandler);
+
+    return pgClient.connect()
+        .then(() => pgClient.query(query))
+        .then(res => res.rows);
+}
+
 function getMetaInfoAll() {
     const pgClient = new pg.Client(pgConfig());
     const query = `
@@ -91,14 +109,26 @@ module.exports = function (context, req) {
     context.log('JavaScript HTTP trigger function processed a request.');
 
     if (req.method == 'GET' && (req.query.all || (req.body && req.body.all))) {
-        context.log('User requested to get all metadata');
-        getMetaInfoAll()
-            .then(data => {
-                context.log('retrieved the following data: ');
-                context.log(data);
-                context.res = { body: data };
-                context.done();
-            });
+        if (req.query.rgprefix || (req.body && req.body.rgprefix)) {
+            context.log(`User requested metadata for prefix ${req.query.rgprefix || req.body.rgprefix}`);
+            getMetaInfoByRgPrefix(req.query.rgprefix || req.body.rgprefix)
+                .then(data => {
+                    context.log('retrieved the following data: ');
+                    context.log(data);
+                    context.res = { body: data };
+                    context.done();
+                });
+        }
+        else {
+            context.log('User requested to get all metadata');
+            getMetaInfoAll()
+                .then(data => {
+                    context.log('retrieved the following data: ');
+                    context.log(data);
+                    context.res = { body: data };
+                    context.done();
+                });
+        }
         return;
     }
 
