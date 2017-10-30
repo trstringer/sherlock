@@ -139,12 +139,43 @@ function createSandboxEntities(rgCount, region, duration, prefix) {
         });
 }
 
+function deleteByRgPrefix(rgPrefix) {
+    return new Promise((resolve, reject) => {
+        const metaUrl = process.env['META_URL'];
+        const metaKey = process.env['META_KEY'];
+        request.delete(`${metaUrl}/?code=${metaKey}&rgprefix=${rgPrefix}`, err => {
+            if (err) {
+                reject(err);
+                return;
+            }
+            resolve();
+        });
+    });
+}
+
 module.exports = function (context, req) {
     context.log('JavaScript HTTP trigger function processed a request.');
     let rgCount = 1;
     let region = 'eastus';
     let duration = 30;  // minutes
     let requestPrefix = '';
+
+    if (req.method === 'DELETE') {
+        if (!req.query.rgprefix && !(req.body && req.body.rgprefix)) {
+            context.res = { status: 400, body: 'To delete a resource you must pass rgprefix' };
+            context.done();
+            return;
+        }
+        deleteByRgPrefix(req.query.rgprefix || req.body.rgprefix)
+            .then(() => context.done())
+            .catch((erro) => {
+                context.log(`Error deleting ${req.query.rgprefix || req.body.rgprefix}`);
+                context.log(err);
+                context.res = { status: 400, body: `Error delete ${req.query.rgprefix || req.body.rgprefix}` };
+                context.done();
+            });
+        return;
+    }
 
     let prefix = process.env['RES_PREFIX'] || 'sherlock';
 
