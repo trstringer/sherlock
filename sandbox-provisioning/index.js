@@ -239,7 +239,7 @@ module.exports = function (context, req) {
         }
         deleteSandboxEnvironment(req.query.rgprefix || req.body.rgprefix)
             .then(() => context.done())
-            .catch((erro) => {
+            .catch((err) => {
                 context.log(`Error deleting ${req.query.rgprefix || req.body.rgprefix}`);
                 context.log(err);
                 context.res = { status: 400, body: `Error delete ${req.query.rgprefix || req.body.rgprefix}` };
