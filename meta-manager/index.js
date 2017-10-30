@@ -91,8 +91,11 @@ module.exports = function (context, req) {
     context.log('JavaScript HTTP trigger function processed a request.');
 
     if (req.method == 'GET' && (req.query.all || (req.body && req.body.all))) {
+        context.log('User requested to get all metadata');
         getMetaInfoAll()
             .then(data => {
+                context.log('retrieved the following data: ');
+                context.log(data);
                 context.res = { body: data };
                 context.done();
             });
