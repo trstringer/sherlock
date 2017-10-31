@@ -188,7 +188,9 @@ function deleteSandboxEnvironment(rgPrefix, logger) {
             let deleteResourceGroupOperations = [];
             for(let i = 0; i < resourceGroups.length; i++) {
                 if (resourceGroups[i].name.substring(0, rowsCached[0].resource_group_prefix.length) === rowsCached[0].resource_group_prefix) {
-                    deleteApplications.push(rowsCached[0].application_object_id);
+                    if (deleteApplications.length === 0) {
+                        deleteApplications.push(rowsCached[0].application_object_id);
+                    }
                     logger(`Deleting ${resourceGroups[i].name}`);
                     deleteResourceGroupOperations.push(resClientCached.resourceGroups.beginDeleteMethod(resourceGroups[i].name));
                 }
