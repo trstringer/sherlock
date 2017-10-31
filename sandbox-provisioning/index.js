@@ -191,7 +191,6 @@ function deleteSandboxEnvironment(rgPrefix, logger) {
                     deleteApplications.push(rowsCached[0].application_object_id);
                     logger(`Deleting ${resourceGroups[i].name}`);
                     deleteResourceGroupOperations.push(resClientCached.resourceGroups.beginDeleteMethod(resourceGroups[i].name));
-                    break;
                 }
             }
             logger(`deleting ${deleteResourceGroupOperations.length} resource group(s)`);
