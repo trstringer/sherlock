@@ -59,7 +59,9 @@ function getServicePrincipal() {
     });
 }
 
-function assignRolesToServicePrincipal(creds, servicePrincipal, subscriptionId, rgName, contributorRoleId) {
+function assignRolesToServicePrincipal(creds, servicePrincipal, subscriptionId, rgName, contributorRoleId, logger) {
+    logger('In assignRolesToServicePrincipal, servicePrincipal dump:');
+    logger(servicePrincipal);
     const authClient = new AuthClient(creds, subscriptionId, null);
     const scope = `subscriptions/${subscriptionId}/resourceGroups/${rgName}`;
     const roleDefinitionId = `${scope}/providers/Microsoft.Authorization/roleDefinitions/${contributorRoleId}`;
@@ -172,7 +174,8 @@ function createSandboxEntities(rgCount, region, duration, prefix, logger) {
                 spCached,
                 subscriptionId,
                 rgName,
-                contributorRoleId
+                contributorRoleId,
+                logger
             )));
         })
         .then(() => {
