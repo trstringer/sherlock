@@ -81,16 +81,6 @@ function populateServicePrincipalsQueue(logger) {
     });
 }
 
-function strongPassword() {
-    let password = '';
-
-    for (let i = 0; i < 8; i++) {
-        password += Math.random().toString(36).slice(-8);
-    }
-
-    return password;
-}
-
 function createServicePrincipal(graphClient, applicationId) {
     return graphClient.servicePrincipals.create({
         appId: applicationId,
