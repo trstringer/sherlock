@@ -55,7 +55,7 @@ function populateServicePrincipalsQueue(logger) {
                             identities.forEach(identity => {
                                 queueService.createMessage(
                                     queueName,
-                                    `${identity.spObjectId} ${identity.appId} ${identity.appObjectId} ${identity.password}`,
+                                    `${identity.spObjectId} ${identity.appId} ${identity.appObjectId}`,
                                     err => {
                                         if (err) {
                                             reject(err);
@@ -81,16 +81,6 @@ function populateServicePrincipalsQueue(logger) {
     });
 }
 
-function strongPassword() {
-    let password = '';
-
-    for (let i = 0; i < 8; i++) {
-        password += Math.random().toString(36).slice(-8);
-    }
-
-    return password;
-}
-
 function createServicePrincipal(graphClient, applicationId) {
     return graphClient.servicePrincipals.create({
         appId: applicationId,
@@ -98,18 +88,13 @@ function createServicePrincipal(graphClient, applicationId) {
     });
 }
 
-function createApplication(graphClient, appName, password) {
+function createApplication(graphClient, appName) {
     const endDate = new Date();
     endDate.setFullYear(endDate.getFullYear() + 1);
     return graphClient.applications.create({
         availableToOtherTenants: false,
         displayName: appName,
-        identifierUris: [ `http://${appName}` ],
-        passwordCredentials: [{
-            keyId: msrest.generateUuid(),
-            value: password,
-            endDate
-        }]
+        identifierUris: [ `http://${appName}` ]
     });
 }
 
@@ -122,14 +107,13 @@ function createIdentities(graphClient, count, logger) {
     let newIdentities = [];
     for (let i = 0; i < count; i++) {
         newIdentities.push({
-            name: randomName(),
-            password: strongPassword()
+            name: randomName()
         });
     }
 
     return Promise.all(
         newIdentities.map((identity, idx) => {
-            return createApplication(graphClient, identity.name, identity.password)
+            return createApplication(graphClient, identity.name)
                 .then(app => {
                     logger(`Application ${app.appId} created`);
                     return createServicePrincipal(graphClient, app.appId)

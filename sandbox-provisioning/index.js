@@ -41,7 +41,7 @@ function getServicePrincipal() {
                         reject(err);
                         return;
                     }
-                    const identity_match = /(.*) (.*) (.*) (.*)/.exec(message.messageText);
+                    const identity_match = /(.*) (.*) (.*)/.exec(message.messageText);
                     queueService.deleteMessage(queueName, message.messageId, message.popReceipt, err => {
                         if (err) {
                             reject(err);
@@ -50,8 +50,7 @@ function getServicePrincipal() {
                         resolve({
                             objectId: identity_match[1],
                             appId: identity_match[2],
-                            appObjectId: identity_match[3],
-                            password: identity_match[4]
+                            appObjectId: identity_match[3]
                         });
                     });
                 });
@@ -60,7 +59,9 @@ function getServicePrincipal() {
     });
 }
 
-function assignRolesToServicePrincipal(creds, servicePrincipal, subscriptionId, rgName, contributorRoleId) {
+function assignRolesToServicePrincipal(creds, servicePrincipal, subscriptionId, rgName, contributorRoleId, logger) {
+    logger('In assignRolesToServicePrincipal, servicePrincipal dump:');
+    logger(servicePrincipal);
     const authClient = new AuthClient(creds, subscriptionId, null);
     const scope = `subscriptions/${subscriptionId}/resourceGroups/${rgName}`;
     const roleDefinitionId = `${scope}/providers/Microsoft.Authorization/roleDefinitions/${contributorRoleId}`;
@@ -93,7 +94,34 @@ function cacheEntityMeta(resourceGroupPrefix, applicationObjectId, expirationTim
     });
 }
 
-function createSandboxEntities(rgCount, region, duration, prefix) {
+function getServicePrincipalWithPassword(graphClient, servicePrincipal) {
+    const spPassword = strongPassword();
+    const endDate = new Date();
+    endDate.setFullYear(endDate.getFullYear() + 1);
+    return graphClient.applications.patch(
+        servicePrincipal.appObjectId,
+        {
+            passwordCredentials: [{
+                keyId: msrest.generateUuid(),
+                value: spPassword,
+                endDate
+            }]
+        }
+    )
+        .then(() => Object.assign({}, servicePrincipal, { password: spPassword }));
+}
+
+function strongPassword() {
+    let password = '';
+
+    for (let i = 0; i < 8; i++) {
+        password += Math.random().toString(36).slice(-8);
+    }
+
+    return password;
+}
+
+function createSandboxEntities(rgCount, region, duration, prefix, logger) {
     const clientId = process.env['AZURE_CLIENT_ID'];
     const clientSecret = process.env['AZURE_CLIENT_SECRET'];
     const subscriptionId = process.env['AZURE_SUBSCRIPTION_ID'];
@@ -105,6 +133,15 @@ function createSandboxEntities(rgCount, region, duration, prefix) {
 
     const rgNameWithoutSeq = `${prefix}${randomNumber}`;
 
+    const credsForGraph = new msrest.ApplicationTokenCredentials(
+        clientId,
+        tenantId,
+        clientSecret,
+        { tokenAudience: 'graph' }
+    );
+
+    const graphClient = new GraphRbacManagementClient(credsForGraph, tenantId);
+
     const rgNames = [];
     for (let i = 0; i < rgCount; i++) {
         rgNames.push(`${rgNameWithoutSeq}-${i}-rg`);
@@ -113,23 +150,40 @@ function createSandboxEntities(rgCount, region, duration, prefix) {
     return getServicePrincipal()
         .then(sp => {
             spCached = sp;
+            logger('Dumping service principal prior to password injection');
+            logger(spCached);
+        })
+        .then(() => getServicePrincipalWithPassword(graphClient, spCached))
+        .then(sp => {
+            // replace the cached service principal with the same
+            // one that now has the new password injected
+            spCached = sp;
+            logger('Dumping service principal post password injection');
+            logger(spCached);
         })
         .then(() => msrest.loginWithServicePrincipalSecret(clientId, clientSecret, tenantId))
         .then(creds => {
             cachedCreds = creds;
+            logger(`Creating ${rgNames.length} resource group(s)`);
             return Promise.all(rgNames.map(rgName => createResourceGroup(creds, rgName, region, subscriptionId)));
         })
         .then(() => {
+            logger('Assigning role to resource group(s)');
             return Promise.all(rgNames.map(rgName => assignRolesToServicePrincipal(
                 cachedCreds,
                 spCached,
                 subscriptionId,
                 rgName,
-                contributorRoleId
+                contributorRoleId,
+                logger
             )));
         })
-        .then(() => cacheEntityMeta(rgNameWithoutSeq, spCached.appObjectId, duration))
         .then(() => {
+            logger('Caching metadata');
+            return cacheEntityMeta(rgNameWithoutSeq, spCached.appObjectId, duration);
+        })
+        .then(() => {
+            logger('Finalization... returning data to caller');
             return {
                 resourceGroupNames: rgNames,
                 clientId: spCached.appId,
@@ -268,7 +322,7 @@ module.exports = function (context, req) {
         prefix += `-${requestPrefix}-`;
     }
 
-    createSandboxEntities(rgCount, region, duration, prefix)
+    createSandboxEntities(rgCount, region, duration, prefix, context.log)
         .then(sandboxResult => {
             context.log(sandboxResult);
             context.res = { body: sandboxResult };
