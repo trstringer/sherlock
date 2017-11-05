@@ -99,7 +99,7 @@ function getServicePrincipalWithPassword(graphClient, servicePrincipal) {
     const endDate = new Date();
     endDate.setFullYear(endDate.getFullYear() + 1);
     return graphClient.applications.patch(
-        servicePrincipal.appId,
+        servicePrincipal.appObjectId,
         {
             passwordCredentials: [{
                 keyId: msrest.generateUuid(),
