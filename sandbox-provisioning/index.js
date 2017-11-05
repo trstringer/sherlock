@@ -162,9 +162,11 @@ function createSandboxEntities(rgCount, region, duration, prefix, logger) {
         .then(() => msrest.loginWithServicePrincipalSecret(clientId, clientSecret, tenantId))
         .then(creds => {
             cachedCreds = creds;
+            logger(`Creating ${rgNames.length} resource group(s)`);
             return Promise.all(rgNames.map(rgName => createResourceGroup(creds, rgName, region, subscriptionId)));
         })
         .then(() => {
+            logger('Assigning role to resource group(s)');
             return Promise.all(rgNames.map(rgName => assignRolesToServicePrincipal(
                 cachedCreds,
                 spCached,
@@ -173,8 +175,12 @@ function createSandboxEntities(rgCount, region, duration, prefix, logger) {
                 contributorRoleId
             )));
         })
-        .then(() => cacheEntityMeta(rgNameWithoutSeq, spCached.appObjectId, duration))
         .then(() => {
+            logger('Caching metadata');
+            return cacheEntityMeta(rgNameWithoutSeq, spCached.appObjectId, duration);
+        })
+        .then(() => {
+            logger('Finalization... returning data to caller');
             return {
                 resourceGroupNames: rgNames,
                 clientId: spCached.appId,
